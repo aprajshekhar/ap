@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	pc := pulp.NewClient("https://brew-pulp-docker01.web.qa.ext.phx1.redhat.com", "", "", "admin", "admin")
+	pc := pulp.NewClient("url", "", "", "user", "pwd")
 	//var rep pulp.Repository
 	rep, _ := pc.GetRepositories()
 	err := pc.Authenticate()

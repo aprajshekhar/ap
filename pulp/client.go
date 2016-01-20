@@ -1,33 +1,85 @@
-// client
+// pulp project pulp.go
 package pulp
+
 import (
-	"github.com/Azure/azure-sdk-for-go/core/http"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"github.com/Azure/azure-sdk-for-go/core/http"
 	"github.com/Azure/azure-sdk-for-go/core/tls"
+	"io"
+	"io/ioutil"
+	"strconv"
 )
 
-type Client struct{
-	Endpoint    		string
-	Cert				Certificate
-	UserName			string //credentials to use
-	Password			string //if certificate auth is not being used	
+type ContentUnitCounts struct {
+	DockerBlob     int `json:"docker_blob"`
+	DockerImage    int `json:"docker_image"`
+	DockerManifest int `json:"docker_manifest"`
 }
 
-type Certificate struct{
-	PkiCertificate		string //Certificate given back by pulp
-	PkiKey				string //Key given back by pulp
+type Id struct {
+	Oid string `json:"$oid"`
 }
 
-func NewClient(endpoint, pkicert, pkikey, username, password string) *Client{
+type Note struct {
+	RepoType string `json:"_repo-type"`
+}
+
+type Filters struct {
+	Unit        string `json:"unit"`
+	Association string `json:"association"`
+}
+
+type ErrorDetail struct {
+	description string `json: "description"`
+}
+
+type ErrorResponse struct {
+	Code        string      `json: "http_status"`
+	ErrorDetail ErrorDetail `json: "error"`
+}
+
+type pulpResponse struct {
+	status  int
+	headers http.Header
+	body    []byte
+}
+
+type Client struct {
+	Endpoint string
+	Cert     Certificate
+	UserName string //credentials to use
+	Password string //if certificate auth is not being used
+}
+
+type Certificate struct {
+	PkiCertificate string `json:"certificate"` //Certificate given back by pulp
+	PkiKey         string `json:"key"`
+}
+
+type RepositoryDetails struct {
+	URL             string            `json:"_href"`
+	PulpId          Id                `json:"_id"`
+	Ns              string            `json:"_ns"`
+	Description     string            `json:"description"`
+	Display         string            `json:"display_name"`
+	RepoId          string            `json:"id"`
+	LastUnitAdded   string            `json:"last_unit_added"`
+	LastUnitRemoved string            `json:"last_unit_removed"`
+	Notes           Note              `json:"notes"`
+	UnitCounts      ContentUnitCounts `json:"content_unit_counts"`
+}
+
+type Repositories []RepositoryDetails
+
+func NewClient(endpoint, pkicert, pkikey, username, password string) *Client {
 	client := &Client{
 		Endpoint: endpoint,
 		UserName: username,
 		Password: password,
 		Cert: Certificate{
-			PkiCertificate:pkicert, 
-			PkiKey:pkikey,
+			PkiCertificate: pkicert,
+			PkiKey:         pkikey,
 		},
 	}
 
@@ -38,65 +90,41 @@ func NewClient(endpoint, pkicert, pkikey, username, password string) *Client{
 // Format may be:
 // {"error": "reason"}
 // {"error": {"param": "reason"}}
-type requestError struct {
-	Error interface{} `json:"error"` // Description of this error.
+//type requestError struct {
+//	Error interface{} `json:"error"` // Description of this error.
+//}
+
+func (client *Client) GetRepositories() (Repositories, error) {
+	var pulpresponse *pulpResponse
+	var err error
+	var repository Repositories
+	if pulpresponse, err = execute("GET", "/pulp/api/v2/repositories/", nil, nil, client.Endpoint, client.UserName, client.Password); err != nil {
+		return nil, err
+	}
+
+	marshalError := json.Unmarshal(pulpresponse.body, &repository)
+	if marshalError != nil {
+		return nil, marshalError
+	}
+
+	return repository, nil
 }
 
-func (client *Client) SetEndpoint(endpoint string){
-	client.Endpoint = endpoint
-}
-
-func (client *Client) SetPkiCertificate(pkicert string){
-	client.Cert.PkiCertificate = pkicert
-}
-
-func (client *Client) SetPkiKey(pkikey string){
-	client.Cert.PkiKey = pkikey
-}
-
-func (client *Client) SetUserName(username string){
-	client.UserName = username
-}
-
-func (client *Client) SetPassword(password string){
-	client.Password = password
-}
-
-func (client *Client) Authenticate() error{
-	var body []byte
+func (client *Client) Authenticate() error {
+	//var body []byte
 	var cert Certificate
-	fmt.Println("endpoint: "+client.Endpoint)
-	
-	transport :=  &http.Transport{
-        TLSClientConfig: &tls.Config{InsecureSkipVerify: true,
-			},
-    }
-	defaultClient := &http.Client{Transport: transport}
-	request, err := http.NewRequest("POST",client.Endpoint,nil)
-	
-	if err!= nil{
+	var pulpresponse *pulpResponse
+	fmt.Println("endpoint: " + client.Endpoint)
+	var err error
+	if pulpresponse, err = execute("POST", "/pulp/api/v2/actions/login/", nil, nil, client.Endpoint, client.UserName, client.Password); err != nil {
 		return err
 	}
-	request.SetBasicAuth(client.UserName, client.Password)
-	response, err := defaultClient.Do(request)
-	
-	if err!=nil{
+
+	if err = json.Unmarshal(pulpresponse.body, &cert); err != nil {
 		return err
 	}
-	
-	defer response.Body.Close()
-	
-	if body, err = getResponse(response); err != nil {
-		return err
-	}
-	fmt.Println("body")
-	fmt.Println(body)
-	if err = json.Unmarshal(body, &cert); err !=nil {
-		return err
-	}
-	
 	client.Cert = cert
-	
+
 	return nil
 }
 
@@ -125,6 +153,7 @@ func newErrorf(StatusCode int, Text string, Parameters ...interface{}) *Error {
 	return newError(StatusCode, fmt.Sprintf(Text, Parameters...))
 }
 
+//this is for error response. need to merge this with regular call
 func getResponse(r *http.Response) ([]byte, error) {
 	var e requestError
 	var b []byte
@@ -150,4 +179,77 @@ func getResponse(r *http.Response) ([]byte, error) {
 		}
 	}
 	return nil, newErrorf(r.StatusCode, "unexpected HTTP status code %d", r.StatusCode)
+}
+
+func errorFromJson(body []byte, code int) (*ErrorResponse, error) {
+	var responseError *ErrorResponse
+	if err := json.Unmarshal(body, responseError); err != nil {
+		return responseError, err
+	}
+	responseError.Code = strconv.Itoa(code)
+	return responseError, nil
+}
+
+func execute(verb, url string, headers map[string]string, content io.Reader, endPoint, userName, password string) (*pulpResponse, error) {
+
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	defaultClient := &http.Client{Transport: transport}
+	request, err := http.NewRequest(verb, endPoint+url, content)
+
+	if err != nil {
+		return nil, err
+	}
+	request.SetBasicAuth(userName, password)
+	response, err := defaultClient.Do(request)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer response.Body.Close()
+
+	statusCode := response.StatusCode
+	if statusCode >= 400 && statusCode <= 505 {
+		var responseBody []byte
+		responseBody, err = getResponse(response)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Print(responseBody)
+		if len(responseBody) == 0 {
+			// no error in response body
+			err = fmt.Errorf("pulp: service returned without a response body (%s)", response.Status)
+		} else {
+			// response contains storage service error object, unmarshal
+			errorResponse, errIn := errorFromJson(responseBody, response.StatusCode)
+			if err != nil { // error unmarshaling the error response
+				err = errIn
+			}
+			err = errorResponse
+		}
+		return &pulpResponse{
+			status:  response.StatusCode,
+			headers: response.Header,
+			body:    responseBody,
+		}, err
+	}
+
+	var responseBody []byte
+	responseBody, err = getResponse(response)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Print(response.Status)
+	return &pulpResponse{
+		status:  response.StatusCode,
+		headers: response.Header,
+		body:    responseBody,
+	}, nil
+
+	return nil, nil
+}
+func (e *ErrorResponse) Error() string {
+	return fmt.Sprintf("storage: service returned error: Code=%s, ErrorMessage=%s", e.Code, e.ErrorDetail.description)
 }
