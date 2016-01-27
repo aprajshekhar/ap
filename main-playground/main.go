@@ -7,7 +7,8 @@ import (
 )
 
 func main() {
-	pc := pulp.NewClient("url", "", "", "user", "passwd")
+	pc := pulp.NewClient("plp-server-url", "", "", "user", "passwd")
+
 	var rep pulp.Repositories
 	rep, _ = pc.ListRepositories()
 	err := pc.Authenticate()
@@ -28,5 +29,15 @@ func main() {
 	repository, _ = pc.GetRepository("redhat-rhel7-docker-hello-world")
 	fmt.Println("url: ", repository.URL)
 	fmt.Println("display name: ", repository.Display)
+
+	fmt.Println("======================================================================")
+	fmt.Println("Creating a new repository")
+	var createrepo pulp.RepositoryDetails
+	createrepo.Description = ""
+	createrepo.Id = "hello-go-1"
+
+	repoc, err := pc.CreateRepository(createrepo)
+	fmt.Println(err)
+	fmt.Printf(repoc.Id)
 
 }

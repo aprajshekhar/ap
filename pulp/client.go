@@ -2,13 +2,15 @@
 package pulp
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/core/http"
 	"github.com/Azure/azure-sdk-for-go/core/tls"
+	//"log"
 	"io"
 	"io/ioutil"
-	"strconv"
+	//"strconv"
 )
 
 type ContentUnitCounts struct {
@@ -35,8 +37,9 @@ type ErrorDetail struct {
 }
 
 type ErrorResponse struct {
-	Code        string      `json:"http_status"`
-	ErrorDetail ErrorDetail `json:"error"`
+	Code         int      `json:"http_status"`
+	ErrorMessage string   `json:"error_message"`
+	Traceback    []string `json:"traceback"`
 }
 
 type pulpResponse struct {
@@ -65,17 +68,51 @@ type ScratchPad struct {
 	Tags []Tag `json:"tags,omitempty"`
 }
 type RepositoryDetails struct {
-	URL             string            `json:"_href"`
-	PulpId          Id                `json:"_id"`
-	Ns              string            `json:"_ns"`
-	Description     string            `json:"description"`
-	Display         string            `json:"display_name"`
-	RepoId          string            `json:"id"`
-	LastUnitAdded   string            `json:"last_unit_added"`
-	LastUnitRemoved string            `json:"last_unit_removed"`
-	Notes           Note              `json:"notes"`
-	UnitCounts      ContentUnitCounts `json:"content_unit_counts"`
+	URL             string            `json:"_href,omitempty"`
+	PulpId          Id                `json:"_id,omitempty"`
+	Ns              string            `json:"_ns,omitempty"`
+	Description     string            `json:"description,omitempty"`
+	Display         string            `json:"display_name,omitempty"`
+	RepoId          string            `json:"id,omitempty"`
+	LastUnitAdded   string            `json:"last_unit_added,omitempty"`
+	LastUnitRemoved string            `json:"last_unit_removed,omitempty"`
+	Notes           Note              `json:"notes,omitempty"`
+	UnitCounts      ContentUnitCounts `json:"content_unit_counts,omitempty"`
 	ImageDetails    ScratchPad        `json:"scratchpad,omitempty"`
+	Distributors    []Distributor     `json:"distributors,omitempty"`
+	Importers       []Importer        `json:"importers,omitempty"`
+}
+
+type ConfigDetail struct {
+	PublishDir string `json:"publish_dir"`
+	WriteFiles string `json:"write_files"`
+}
+
+type Distributor struct {
+	ScratchPad        int          `json:"scratchpad"`
+	Ns                string       `json:"_ns"`
+	ImporterTypeId    string       `json:"importer_type_id"`
+	LastPublish       string       `json:"last_publish"`
+	AutoPublish       bool         `json:"auto_publish"`
+	DistributorTypeId string       `json:"distributor_type_id`
+	RepoId            string       `json:"repo_id"`
+	PublishInProgress bool         `json:"publish_in_progress"`
+	InternalId        string       `json:"_id"`
+	Config            ConfigDetail `json: config`
+	DistributorId     string       `json:"_id"`
+}
+
+type Importer struct {
+	ScratchPad        int          `json:"scratchpad"`
+	Ns                string       `json:"_ns"`
+	LastPublish       string       `json:"last_publish"`
+	AutoPublish       bool         `json:"auto_publish"`
+	ImporterTypeId    string       `json:"importer_type_id`
+	RepoId            string       `json:"repo_id,omitempty"`
+	PublishInProgress bool         `json:"publish_in_progress"`
+	InternalId        string       `json:"_id"`
+	Config            ConfigDetail `json: config`
+	ImporterId        string       `json:"_id"`
 }
 
 type Repositories []RepositoryDetails
@@ -151,29 +188,55 @@ func (client *Client) GetRepository(repositoryName string) (RepositoryDetails, e
 	return repository, nil
 }
 
-func errorFromJson(body []byte, code int) (*ErrorResponse, error) {
-	var responseError *ErrorResponse
-	if err := json.Unmarshal(body, responseError); err != nil {
-		return responseError, err
+func (client *Client) CreateRepository(repodetails RepositoryDetails) (RepositoryDetails, error) {
+	var response *pulpResponse
+	var err error
+	var repositoryResponse RepositoryDetails
+	jsondata, marshalerr := json.Marshal(repodetails)
+
+	if marshalerr != nil {
+		return repositoryResponse, marshalerr
 	}
-	responseError.Code = strconv.Itoa(code)
-	return responseError, nil
+
+	if response, err = execute("POST", "/pulp/api/v2/repositories/", jsondata, client.Endpoint, client.UserName, client.Password); err != nil {
+		return repositoryResponse, err
+	}
+
+	if err = json.Unmarshal(response.body, &repositoryResponse); err != nil {
+		return repositoryResponse, err
+	}
+
+	return repositoryResponse, nil
+
 }
 
-func execute(verb, url string, content io.Reader, endPoint, userName, password string) (*pulpResponse, error) {
+func errorFromJson(body []byte, code int) (*ErrorResponse, error) {
+	var responseError ErrorResponse
+	if err := json.Unmarshal(body, &responseError); err != nil {
+		return &responseError, err
+	}
+
+	responseError.Code = code
+	return &responseError, nil
+}
+
+func execute(verb, url string, content []byte, endPoint, userName, password string) (*pulpResponse, error) {
 
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	defaultClient := &http.Client{Transport: transport}
-	request, err := http.NewRequest(verb, endPoint+url, content)
+	request, err := http.NewRequest(verb, endPoint+url, bytes.NewBuffer(content))
 
 	if err != nil {
 		return nil, err
 	}
+
 	request.SetBasicAuth(userName, password)
+
 	response, err := defaultClient.Do(request)
 
+	fmt.Println("Creating repo with: ", string(content[:]))
 	if err != nil {
 		return nil, err
 	}
@@ -181,20 +244,22 @@ func execute(verb, url string, content io.Reader, endPoint, userName, password s
 	defer response.Body.Close()
 
 	statusCode := response.StatusCode
+
 	if statusCode >= 400 && statusCode <= 505 {
 		var responseBody []byte
 		responseBody, err = getResponse(response)
 		if err != nil {
 			return nil, err
 		}
-		fmt.Print(responseBody)
+
 		if len(responseBody) == 0 {
 			// no error in response body
 			err = fmt.Errorf("pulp: service returned without a response body (%s)", response.Status)
 		} else {
 			// response contains pulp service error object, unmarshal
 			errorResponse, errIn := errorFromJson(responseBody, response.StatusCode)
-			if err != nil { // error unmarshaling the error response
+
+			if errIn != nil { // error unmarshaling the error response
 				err = errIn
 			}
 			err = errorResponse
@@ -211,7 +276,7 @@ func execute(verb, url string, content io.Reader, endPoint, userName, password s
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("response status:", response.Status)
+
 	return &pulpResponse{
 		status:  response.StatusCode,
 		headers: response.Header,
@@ -220,14 +285,14 @@ func execute(verb, url string, content io.Reader, endPoint, userName, password s
 
 	return nil, nil
 }
-func getResponse(resp *http.Response) ([]byte, error) {
-	defer resp.Body.Close()
-	out, err := ioutil.ReadAll(resp.Body)
+func getResponse(response *http.Response) ([]byte, error) {
+	defer response.Body.Close()
+	out, err := ioutil.ReadAll(response.Body)
 	if err == io.EOF {
 		err = nil
 	}
 	return out, err
 }
 func (e *ErrorResponse) Error() string {
-	return fmt.Sprintf("pulp: service returned error: Code=%s, ErrorMessage=%s", e.Code, e.ErrorDetail.description)
+	return fmt.Sprintf("pulp: service returned error: Code=%d, ErrorMessage=%s", e.Code, e.ErrorMessage)
 }
