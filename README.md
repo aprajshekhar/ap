@@ -1,3 +1,4 @@
 # ap
 * Akamai NetStorage client in Go
-* PUlp client for Go
+* Pulp client for Go
+  * The example for using the Go client is in main-playground. Its README contains steps for setting up and running the example  
