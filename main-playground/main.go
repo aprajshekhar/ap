@@ -8,14 +8,13 @@ import (
 
 func main() {
 	pc := pulp.NewClient("plp-server-url", "", "", "user", "passwd")
-
-	var rep pulp.Repositories
-	rep, _ = pc.ListRepositories()
+	var repos pulp.Repositories
+	repos, _ = pc.ListRepositories()
 	err := pc.Authenticate()
 	fmt.Println("error in auth: ", err)
 	fmt.Println("received key:", pc.Cert.PkiKey)
 	fmt.Println("==================================================================")
-	for _, repo := range rep {
+	for _, repo := range repos {
 		fmt.Println("url :", repo.URL)
 		fmt.Println("display name:", repo.Display)
 		fmt.Println("repo id:", repo.RepoId)
@@ -37,7 +36,7 @@ func main() {
 	createrepo.Id = "hello-go-1"
 
 	repoc, err := pc.CreateRepository(createrepo)
-	fmt.Println(err)
+	fmt.Println("error, if any", err)
 	fmt.Printf(repoc.Id)
 
 }
