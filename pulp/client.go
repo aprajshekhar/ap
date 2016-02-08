@@ -117,7 +117,7 @@ type Importer struct {
 
 type Repositories []RepositoryDetails
 
-func NewClient(endpoint, pkicert, pkikey, username, password string) *Client {
+func PulpClient(endpoint, pkicert, pkikey, username, password string) *Client {
 	client := &Client{
 		Endpoint: endpoint,
 		UserName: username,
