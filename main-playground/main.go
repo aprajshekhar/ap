@@ -7,7 +7,8 @@ import (
 )
 
 func main() {
-	pc := pulp.NewClient("plp-server-url", "", "", "user", "passwd")
+	pc := pulp.PulpClient("plp-server-url", "", "", "user", "passwd")
+
 	var repos pulp.Repositories
 	repos, _ = pc.ListRepositories()
 	err := pc.Authenticate()
@@ -19,6 +20,7 @@ func main() {
 		fmt.Println("display name:", repo.Display)
 		fmt.Println("repo id:", repo.RepoId)
 		fmt.Println("description: ", repo.Description)
+		fmt.Println("importers: ", repo.Importers)
 		fmt.Println("------------------------------")
 	}
 
@@ -33,10 +35,22 @@ func main() {
 	fmt.Println("Creating a new repository")
 	var createrepo pulp.RepositoryDetails
 	createrepo.Description = ""
-	createrepo.Id = "hello-go-1"
+	createrepo.RepoId = "hello-go-1"
 
 	repoc, err := pc.CreateRepository(createrepo)
 	fmt.Println("error, if any", err)
-	fmt.Printf(repoc.Id)
+	fmt.Printf(repoc.RepoId)
+
+	fmt.Println("=======================================================================")
+	fmt.Println("Listing all upload requests")
+	var uploadReqs pulp.UploadRequests
+	uploadReqs, _ = pc.ListUploadRequests()
+	fmt.Println("Uplaoad requests: ", uploadReqs.UploadIds)
+
+	fmt.Println("=======================================================================")
+	fmt.Println("Creating an upload request")
+	var uploadReq pulp.UploadRequest
+	uploadReq, _ = pc.CreateUploadRequest()
+	fmt.Println("Uplaoad request ID ", uploadReq.UploadId)
 
 }

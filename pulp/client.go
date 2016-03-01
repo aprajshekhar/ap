@@ -115,6 +115,15 @@ type Importer struct {
 	ImporterId        string       `json:"_id"`
 }
 
+type UploadRequests struct {
+	UploadIds []string `json:"upload_ids"`
+}
+
+type UploadRequest struct {
+	Href     string `json:"_href"`
+	UploadId string `json:"upload_id"`
+}
+
 type Repositories []RepositoryDetails
 
 func PulpClient(endpoint, pkicert, pkikey, username, password string) *Client {
@@ -208,6 +217,38 @@ func (client *Client) CreateRepository(repodetails RepositoryDetails) (Repositor
 
 	return repositoryResponse, nil
 
+}
+
+func (client *Client) ListUploadRequests() (UploadRequests, error) {
+	var pulpresponse *pulpResponse
+	var err error
+	var uploadRequests UploadRequests
+	if pulpresponse, err = execute("GET", "/pulp/api/v2/content/uploads/", nil, client.Endpoint, client.UserName, client.Password); err != nil {
+		return uploadRequests, err
+	}
+
+	marshalError := json.Unmarshal(pulpresponse.body, &uploadRequests)
+	if marshalError != nil {
+		return uploadRequests, marshalError
+	}
+
+	return uploadRequests, nil
+}
+
+func (client *Client) CreateUploadRequest() (UploadRequest, error) {
+	var pulpresponse *pulpResponse
+	var err error
+	var uploadRequest UploadRequest
+	if pulpresponse, err = execute("POST", "/pulp/api/v2/content/uploads/", nil, client.Endpoint, client.UserName, client.Password); err != nil {
+		return uploadRequest, err
+	}
+
+	marshalError := json.Unmarshal(pulpresponse.body, &uploadRequest)
+	if marshalError != nil {
+		return uploadRequest, marshalError
+	}
+
+	return uploadRequest, nil
 }
 
 func errorFromJson(body []byte, code int) (*ErrorResponse, error) {
