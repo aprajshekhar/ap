@@ -3,12 +3,40 @@ package main
 
 import (
 	"fmt"
+	"github.com/ap/netstorage"
 	"github.com/ap/pulp"
 )
 
 func main() {
-	pc := pulp.PulpClient("plp-server-url", "", "", "user", "passwd")
+	ns := netstorage.NewClient("host", "basefolder", "key-name", "key")
+	fmt.Println("Dir")
+	stat, err := ns.Dir("")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(stat)
+	}
+	fmt.Println("===========================")
+	fmt.Println("Du")
+	nsdu, err := ns.DiskUsage("")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(nsdu)
+	}
+	fmt.Println("===========================")
+	fmt.Println("Stat")
+	stat1, err := ns.Statistics("")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(stat1)
+	}
+}
 
+func testPulpClient() {
+	//pc := pulp.PulpClient("plp-server-url", "", "", "user", "passwd")
+	pc := pulp.PulpClient("https://brew-pulp-docker01.web.qa.ext.phx1.redhat.com", "", "", "admin", "admin")
 	var repos pulp.Repositories
 	repos, _ = pc.ListRepositories()
 	err := pc.Authenticate()
@@ -21,6 +49,7 @@ func main() {
 		fmt.Println("repo id:", repo.RepoId)
 		fmt.Println("description: ", repo.Description)
 		fmt.Println("importers: ", repo.Importers)
+		fmt.Println("distributors: ", repo.Distributors)
 		fmt.Println("------------------------------")
 	}
 
@@ -31,15 +60,15 @@ func main() {
 	fmt.Println("url: ", repository.URL)
 	fmt.Println("display name: ", repository.Display)
 
-	fmt.Println("======================================================================")
-	fmt.Println("Creating a new repository")
-	var createrepo pulp.RepositoryDetails
-	createrepo.Description = ""
-	createrepo.RepoId = "hello-go-1"
+	//	fmt.Println("======================================================================")
+	//	fmt.Println("Creating a new repository")
+	//	var createrepo pulp.RepositoryDetails
+	//	createrepo.Description = ""
+	//	createrepo.RepoId = "hello-go-1"
 
-	repoc, err := pc.CreateRepository(createrepo)
-	fmt.Println("error, if any", err)
-	fmt.Printf(repoc.RepoId)
+	//	repoc, err := pc.CreateRepository(createrepo)
+	//	fmt.Println("error, if any", err)
+	//	fmt.Printf(repoc.RepoId)
 
 	fmt.Println("=======================================================================")
 	fmt.Println("Listing all upload requests")
@@ -47,10 +76,9 @@ func main() {
 	uploadReqs, _ = pc.ListUploadRequests()
 	fmt.Println("Uplaoad requests: ", uploadReqs.UploadIds)
 
-	fmt.Println("=======================================================================")
-	fmt.Println("Creating an upload request")
-	var uploadReq pulp.UploadRequest
-	uploadReq, _ = pc.CreateUploadRequest()
-	fmt.Println("Uplaoad request ID ", uploadReq.UploadId)
-
+	//	fmt.Println("=======================================================================")
+	//	fmt.Println("Creating an upload request")
+	//	var uploadReq pulp.UploadRequest
+	//	uploadReq, _ = pc.CreateUploadRequest()
+	//	fmt.Println("Uplaoad request ID ", uploadReq.UploadId)
 }
