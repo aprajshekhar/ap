@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	ns := netstorage.NewClient("host", "basefolder", "key-name", "key")
+
 	fmt.Println("Dir")
 	stat, err := ns.Dir("")
 	if err != nil {
@@ -35,8 +35,8 @@ func main() {
 }
 
 func testPulpClient() {
-	//pc := pulp.PulpClient("plp-server-url", "", "", "user", "passwd")
-	pc := pulp.PulpClient("https://brew-pulp-docker01.web.qa.ext.phx1.redhat.com", "", "", "admin", "admin")
+	pc := pulp.PulpClient("plp-server-url", "", "", "user", "passwd")
+
 	var repos pulp.Repositories
 	repos, _ = pc.ListRepositories()
 	err := pc.Authenticate()
