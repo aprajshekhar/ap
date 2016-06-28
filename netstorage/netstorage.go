@@ -7,19 +7,13 @@ import (
 	"encoding/base64"
 	"encoding/xml"
 	//"errors"
+	"bytes"
 	"fmt"
-	//"golang.org/x/text/encoding/charmap"
-	//"golang.org/x/text/transform"
 	"golang.org/x/net/html/charset"
 	"io"
-	//"math/rand"
-	//"net"
+	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
-	//"net/url"
-	//"strings"
-	"bytes"
-	"io/ioutil"
 	"path"
 	"time"
 )
@@ -28,10 +22,8 @@ import (
 // https://control.akamai.com/dl/customers/NS/NS_http_api_FS.pdf
 // (login required)
 type NetstorageClient struct {
-	Host   string
-	Folder string
-	//Prefix string
-	//BaseURL           string
+	Host              string
+	Folder            string
 	NetstorageKeyName string
 	NetstorageSecret  string
 }
@@ -70,23 +62,13 @@ func (e *NSError) Error() string {
 
 func NewClient(host, folder, keyname, key string) *NetstorageClient {
 	nsclient := &NetstorageClient{
-		Host:   host,
-		Folder: folder,
-		//Prefix:            prefix,
-		//BaseURL:           baseUrl,
+		Host:              host,
+		Folder:            folder,
 		NetstorageKeyName: keyname,
 		NetstorageSecret:  key,
 	}
 	return nsclient
 }
-
-//func (client *NetstorageClient) SetPrefix(key string) {
-//	client.Prefix = key
-//}
-
-//func (client *NetstorageClient) URLFor(p string) string {
-//	return fmt.Sprintf("%s/%s.json", client.BaseURL, path.Join(client.Prefix, p))
-//}
 
 func (client *NetstorageClient) auth(httpRequest *http.Request, id string, filename string, unixTime int64, actionName string) {
 	action := fmt.Sprintf("version=1&action=%s", actionName)
@@ -150,7 +132,8 @@ func (client *NetstorageClient) Dir(filepath string) (Stat, error) {
 	client.auth(req, filename, filename, time.Now().Unix(), "dir&format=xml")
 
 	dump1, _ := httputil.DumpRequest(req, true)
-	fmt.Println("req:", string(dump1))
+	fmt.Println("req:")
+	fmt.Println(string(dump1))
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -163,7 +146,6 @@ func (client *NetstorageClient) Dir(filepath string) (Stat, error) {
 
 	buff, _ := getResponse(resp)
 
-	//err1 := xml.Unmarshal(buff, &stat)
 	reader := bytes.NewReader(buff)
 	decoder := xml.NewDecoder(reader)
 	decoder.CharsetReader = charset.NewReaderLabel
@@ -186,7 +168,8 @@ func (client *NetstorageClient) DiskUsage(filepath string) (Du, error) {
 	client.auth(req, filename, filename, time.Now().Unix(), "du&format=xml")
 
 	dump1, _ := httputil.DumpRequest(req, true)
-	fmt.Println("req:", string(dump1))
+	fmt.Println("req:")
+	fmt.Println(string(dump1))
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -198,8 +181,7 @@ func (client *NetstorageClient) DiskUsage(filepath string) (Du, error) {
 	}
 
 	buff, _ := getResponse(resp)
-	//fmt.Println("du:", string(buff[:]))
-	//err1 := xml.Unmarshal(buff, &stat)
+
 	reader := bytes.NewReader(buff)
 	decoder := xml.NewDecoder(reader)
 	decoder.CharsetReader = charset.NewReaderLabel
@@ -222,7 +204,8 @@ func (client *NetstorageClient) Statistics(filepath string) (Stat, error) {
 	client.auth(req, filename, filename, time.Now().Unix(), "stat&format=xml")
 
 	dump1, _ := httputil.DumpRequest(req, true)
-	fmt.Println("req:", string(dump1))
+	fmt.Println("req:")
+	fmt.Println(string(dump1))
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -235,7 +218,6 @@ func (client *NetstorageClient) Statistics(filepath string) (Stat, error) {
 
 	buff, _ := getResponse(resp)
 
-	//err1 := xml.Unmarshal(buff, &stat)
 	reader := bytes.NewReader(buff)
 	decoder := xml.NewDecoder(reader)
 	decoder.CharsetReader = charset.NewReaderLabel
