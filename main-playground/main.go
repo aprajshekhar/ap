@@ -8,9 +8,9 @@ import (
 )
 
 func main() {
-
+	ns := netstorage.NewClient("host", "base-folder", "key-name", "key")
 	fmt.Println("Dir")
-	stat, err := ns.Dir("")
+	stat, err := ns.Dir("/test/")
 	if err != nil {
 		fmt.Println(err)
 	} else {
@@ -32,6 +32,15 @@ func main() {
 	} else {
 		fmt.Println(stat1)
 	}
+	fmt.Println("============================")
+	fmt.Println("MkDir")
+	err1 := ns.MakeDir("/test/test1")
+	fmt.Println("error", err1)
+
+	fmt.Println("============================")
+	fmt.Println("RmDir")
+	err2 := ns.RemoveDir("/test/test1")
+	fmt.Println("error", err2)
 }
 
 func testPulpClient() {

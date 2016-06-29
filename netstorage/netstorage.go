@@ -37,8 +37,8 @@ type NSFile struct {
 }
 
 type Stat struct {
-	Dirctory string `xml:"directory,attr"`
-	File     NSFile `xml:"file"`
+	Dirctory string   `xml:"directory,attr"`
+	Files    []NSFile `xml:"file"`
 }
 
 type DuInfo struct {
@@ -81,7 +81,7 @@ func (client *NetstorageClient) auth(httpRequest *http.Request, id string, filen
 	httpRequest.Header.Set("X-Akamai-ACS-Auth-Sign", base64.StdEncoding.EncodeToString(hash.Sum(nil)))
 }
 
-func (client *NetstorageClient) PutReader(key string, r io.Reader, contentType string) error {
+func (client *NetstorageClient) Upload(key string, r io.Reader, contentType string) error {
 	filename := path.Join(client.Folder, key)
 	req, err := http.NewRequest("PUT", fmt.Sprintf("http://%s/%s", client.Host, filename), r)
 	if err != nil {
@@ -94,15 +94,52 @@ func (client *NetstorageClient) PutReader(key string, r io.Reader, contentType s
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		dump, _ := httputil.DumpResponse(resp, true)
-		return fmt.Errorf("unexpected response code %d when uploading %s. Here's a dump of the response:\n%s", resp.StatusCode, filename, string(dump))
+		return getErrorDetails(resp)
 	}
-	fmt.Printf("output: put %s", filename)
+	fmt.Println("output: put %s", filename)
 	return nil
 }
 
-func (client *NetstorageClient) Delete(key string) error {
-	filename := path.Join(client.Folder, key)
+func (client *NetstorageClient) MakeDir(dirname string) error {
+	filename := path.Join(client.Folder, dirname)
+	req, err := http.NewRequest("PUT", fmt.Sprintf("http://%s/%s", client.Host, filename), nil)
+	if err != nil {
+		return err
+	}
+	client.auth(req, filename, filename, time.Now().Unix(), "mkdir")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return getErrorDetails(resp)
+	}
+	fmt.Println("output: put %s", filename)
+	return nil
+}
+
+func (client *NetstorageClient) RemoveDir(dirname string) error {
+	filename := path.Join(client.Folder, dirname)
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/%s", client.Host, filename), nil)
+	if err != nil {
+		return err
+	}
+	client.auth(req, filename, filename, time.Now().Unix(), "rmdir")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return getErrorDetails(resp)
+	}
+	fmt.Println("output: put %s", filename)
+	return nil
+}
+
+func (client *NetstorageClient) Delete(file string) error {
+	filename := path.Join(client.Folder, file)
 	req, err := http.NewRequest("DELETE", fmt.Sprintf("http://%s/%s", client.Host, filename), nil)
 	if err != nil {
 		return err
@@ -114,10 +151,29 @@ func (client *NetstorageClient) Delete(key string) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		dump, _ := httputil.DumpResponse(resp, true)
-		return fmt.Errorf("unexpected response code %d when uploading %s. Here's a dump of the response:\n%s", resp.StatusCode, filename, string(dump))
+		return getErrorDetails(resp)
 	}
-	fmt.Printf("output: delete %s", filename)
+	fmt.Println("output: delete %s", filename)
+	return nil
+}
+
+func (client *NetstorageClient) Rename(file string, newname string) error {
+	filename := path.Join(client.Folder, file)
+	newFilename := path.Join(client.Folder, newname)
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/%s", client.Host, filename), nil)
+	if err != nil {
+		return err
+	}
+	client.auth(req, filename, filename, time.Now().Unix(), fmt.Sprintf("delete&destination=%s", newFilename))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return getErrorDetails(resp)
+	}
+	fmt.Println("output: delete %s", filename)
 	return nil
 }
 
@@ -145,7 +201,7 @@ func (client *NetstorageClient) Dir(filepath string) (Stat, error) {
 	}
 
 	buff, _ := getResponse(resp)
-
+	fmt.Println("dir data:", string(buff[:]))
 	reader := bytes.NewReader(buff)
 	decoder := xml.NewDecoder(reader)
 	decoder.CharsetReader = charset.NewReaderLabel
