@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	ns := netstorage.NewClient("host", "base-folder", "key-name", "key")
+	ns := netstorage.NewClient("host", "base-folder", "keyname", "value")
 	fmt.Println("Dir")
 	stat, err := ns.Dir("/test/")
 	if err != nil {
@@ -69,15 +69,15 @@ func testPulpClient() {
 	fmt.Println("url: ", repository.URL)
 	fmt.Println("display name: ", repository.Display)
 
-	//	fmt.Println("======================================================================")
-	//	fmt.Println("Creating a new repository")
-	//	var createrepo pulp.RepositoryDetails
-	//	createrepo.Description = ""
-	//	createrepo.RepoId = "hello-go-1"
+	fmt.Println("======================================================================")
+	fmt.Println("Creating a new repository")
+	var createrepo pulp.RepositoryDetails
+	createrepo.Description = ""
+	createrepo.RepoId = "hello-go-1"
 
-	//	repoc, err := pc.CreateRepository(createrepo)
-	//	fmt.Println("error, if any", err)
-	//	fmt.Printf(repoc.RepoId)
+	repoc, err := pc.CreateRepository(createrepo)
+	fmt.Println("error, if any", err)
+	fmt.Printf(repoc.RepoId)
 
 	fmt.Println("=======================================================================")
 	fmt.Println("Listing all upload requests")
@@ -85,9 +85,9 @@ func testPulpClient() {
 	uploadReqs, _ = pc.ListUploadRequests()
 	fmt.Println("Uplaoad requests: ", uploadReqs.UploadIds)
 
-	//	fmt.Println("=======================================================================")
-	//	fmt.Println("Creating an upload request")
-	//	var uploadReq pulp.UploadRequest
-	//	uploadReq, _ = pc.CreateUploadRequest()
-	//	fmt.Println("Uplaoad request ID ", uploadReq.UploadId)
+	fmt.Println("=======================================================================")
+	fmt.Println("Creating an upload request")
+	var uploadReq pulp.UploadRequest
+	uploadReq, _ = pc.CreateUploadRequest()
+	fmt.Println("Uplaoad request ID ", uploadReq.UploadId)
 }

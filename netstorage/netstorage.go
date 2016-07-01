@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-// A NetstorageClient uploads to Akamai Netstorage using HTTP:
+// A NetstorageClient that implements functionality described in
 // https://control.akamai.com/dl/customers/NS/NS_http_api_FS.pdf
 // (login required)
 type NetstorageClient struct {
@@ -57,7 +57,7 @@ type NSError struct {
 }
 
 func (e *NSError) Error() string {
-	return fmt.Sprintf("%d - %s", e.Status, e.Message)
+	return fmt.Sprintf("status= %d and message= %s", e.Status, e.Message)
 }
 
 func NewClient(host, folder, keyname, key string) *NetstorageClient {
@@ -155,6 +155,25 @@ func (client *NetstorageClient) Delete(file string) error {
 	}
 	fmt.Println("output: delete %s", filename)
 	return nil
+}
+
+func (client *NetstorageClient) Download(file string) (io.ReadCloser, error) {
+	filename := path.Join(client.Folder, file)
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/%s", client.Host, filename), nil)
+	if err != nil {
+		return nil, err
+	}
+	client.auth(req, filename, filename, time.Now().Unix(), "download")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return nil, getErrorDetails(resp)
+	}
+	fmt.Println("output: download %s", filename)
+	return resp.Body, nil
 }
 
 func (client *NetstorageClient) Rename(file string, newname string) error {
