@@ -9,13 +9,14 @@ import (
 	//"errors"
 	"bytes"
 	"fmt"
-	"golang.org/x/net/html/charset"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"path"
 	"time"
+
+	"golang.org/x/net/html/charset"
 )
 
 // A NetstorageClient that implements functionality described in
@@ -81,8 +82,9 @@ func (client *NetstorageClient) auth(httpRequest *http.Request, id string, filen
 	httpRequest.Header.Set("X-Akamai-ACS-Auth-Sign", base64.StdEncoding.EncodeToString(hash.Sum(nil)))
 }
 
-func (client *NetstorageClient) Upload(key string, r io.Reader, contentType string) error {
-	filename := path.Join(client.Folder, key)
+//Upload uploads data to the path specified by the name.
+func (client *NetstorageClient) Upload(name string, r io.Reader, contentType string) error {
+	filename := path.Join(client.Folder, name)
 	req, err := http.NewRequest("PUT", fmt.Sprintf("http://%s/%s", client.Host, filename), r)
 	if err != nil {
 		return err
@@ -100,6 +102,7 @@ func (client *NetstorageClient) Upload(key string, r io.Reader, contentType stri
 	return nil
 }
 
+//Makes a new directory specified by the dirname (equivalent of mkdir -p <path>).
 func (client *NetstorageClient) MakeDir(dirname string) error {
 	filename := path.Join(client.Folder, dirname)
 	req, err := http.NewRequest("PUT", fmt.Sprintf("http://%s/%s", client.Host, filename), nil)
@@ -119,6 +122,7 @@ func (client *NetstorageClient) MakeDir(dirname string) error {
 	return nil
 }
 
+//Removes a directory. If the directory is not empty, returns 409 COnflict error
 func (client *NetstorageClient) RemoveDir(dirname string) error {
 	filename := path.Join(client.Folder, dirname)
 	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/%s", client.Host, filename), nil)
@@ -138,6 +142,7 @@ func (client *NetstorageClient) RemoveDir(dirname string) error {
 	return nil
 }
 
+//Deletes a file.
 func (client *NetstorageClient) Delete(file string) error {
 	filename := path.Join(client.Folder, file)
 	req, err := http.NewRequest("DELETE", fmt.Sprintf("http://%s/%s", client.Host, filename), nil)
@@ -157,6 +162,8 @@ func (client *NetstorageClient) Delete(file string) error {
 	return nil
 }
 
+//Downloads a file. If the size of file greater than 1.8gb and the type of upload account
+//is filestore, an error will be returned.
 func (client *NetstorageClient) Download(file string) (io.ReadCloser, error) {
 	filename := path.Join(client.Folder, file)
 	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/%s", client.Host, filename), nil)
@@ -176,6 +183,8 @@ func (client *NetstorageClient) Download(file string) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
+//Renames a file. If another file of same name (even if the extension is different)
+//exists, 409 Conflict error will be returned.
 func (client *NetstorageClient) Rename(file string, newname string) error {
 	filename := path.Join(client.Folder, file)
 	newFilename := path.Join(client.Folder, newname)
@@ -196,6 +205,7 @@ func (client *NetstorageClient) Rename(file string, newname string) error {
 	return nil
 }
 
+//Lists a directory.
 func (client *NetstorageClient) Dir(filepath string) (Stat, error) {
 	var stat Stat
 	filename := path.Join(client.Folder, filepath)
@@ -232,6 +242,7 @@ func (client *NetstorageClient) Dir(filepath string) (Stat, error) {
 	return stat, nil
 }
 
+//Enumerates the size of the files in a directory in bytes
 func (client *NetstorageClient) DiskUsage(filepath string) (Du, error) {
 	var nsdu Du
 	filename := path.Join(client.Folder, filepath)
@@ -268,6 +279,7 @@ func (client *NetstorageClient) DiskUsage(filepath string) (Du, error) {
 	return nsdu, nil
 }
 
+//Provides stats of a file/directory
 func (client *NetstorageClient) Statistics(filepath string) (Stat, error) {
 	var stat Stat
 	filename := path.Join(client.Folder, filepath)

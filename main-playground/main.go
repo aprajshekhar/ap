@@ -3,19 +3,14 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/ap/netstorage"
 	"github.com/ap/pulp"
 )
 
 func main() {
 	ns := netstorage.NewClient("host", "base-folder", "keyname", "value")
-	fmt.Println("Dir")
-	stat, err := ns.Dir("/test/")
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		fmt.Println(stat)
-	}
+
 	fmt.Println("===========================")
 	fmt.Println("Du")
 	nsdu, err := ns.DiskUsage("")
@@ -32,10 +27,19 @@ func main() {
 	} else {
 		fmt.Println(stat1)
 	}
+
 	fmt.Println("============================")
 	fmt.Println("MkDir")
-	err1 := ns.MakeDir("/test/test1")
+	err1 := ns.MakeDir("/test/test1/test2")
 	fmt.Println("error", err1)
+
+	fmt.Println("Dir")
+	stat, err := ns.Dir("/test/")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(stat)
+	}
 
 	fmt.Println("============================")
 	fmt.Println("RmDir")
