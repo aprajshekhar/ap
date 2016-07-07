@@ -162,6 +162,26 @@ func (client *NetstorageClient) Delete(file string) error {
 	return nil
 }
 
+//Quick deletes a directory. If the directory is not empty, recursively delete all its content
+func (client *NetstorageClient) QuickDelete(dirname string) error {
+	filename := path.Join(client.Folder, dirname)
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/%s", client.Host, filename), nil)
+	if err != nil {
+		return err
+	}
+	client.auth(req, filename, filename, time.Now().Unix(), "quick-delete&quick-delete=imreallyreallysure")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return getErrorDetails(resp)
+	}
+	fmt.Println("output: put %s", filename)
+	return nil
+}
+
 //Downloads a file. If the size of file greater than 1.8gb and the type of upload account
 //is filestore, an error will be returned.
 func (client *NetstorageClient) Download(file string) (io.ReadCloser, error) {
